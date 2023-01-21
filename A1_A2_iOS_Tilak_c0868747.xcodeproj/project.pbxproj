@@ -13,6 +13,7 @@
 		4130AE22297B507100B3E0BB /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 4130AE20297B507100B3E0BB /* Main.storyboard */; };
 		4130AE24297B507200B3E0BB /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4130AE23297B507200B3E0BB /* Assets.xcassets */; };
 		4130AE27297B507200B3E0BB /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 4130AE25297B507200B3E0BB /* LaunchScreen.storyboard */; };
+		4130AE2F297B5AC600B3E0BB /* LocationModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4130AE2E297B5AC600B3E0BB /* LocationModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -24,6 +25,7 @@
 		4130AE23297B507200B3E0BB /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		4130AE26297B507200B3E0BB /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		4130AE28297B507200B3E0BB /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		4130AE2E297B5AC600B3E0BB /* LocationModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -63,6 +65,7 @@
 				4130AE23297B507200B3E0BB /* Assets.xcassets */,
 				4130AE25297B507200B3E0BB /* LaunchScreen.storyboard */,
 				4130AE28297B507200B3E0BB /* Info.plist */,
+				4130AE2E297B5AC600B3E0BB /* LocationModel.swift */,
 			);
 			path = A1_A2_iOS_Tilak_c0868747;
 			sourceTree = "<group>";
@@ -138,6 +141,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4130AE2F297B5AC600B3E0BB /* LocationModel.swift in Sources */,
 				4130AE1F297B507100B3E0BB /* ViewController.swift in Sources */,
 				4130AE1B297B507100B3E0BB /* AppDelegate.swift in Sources */,
 				4130AE1D297B507100B3E0BB /* SceneDelegate.swift in Sources */,
