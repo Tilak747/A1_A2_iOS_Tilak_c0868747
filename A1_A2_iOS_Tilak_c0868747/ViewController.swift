@@ -12,15 +12,114 @@ class ViewController: UIViewController,CLLocationManagerDelegate {
 
     @IBOutlet weak var map: MKMapView!
     
+    @IBOutlet weak var resetBtn: UIButton!
     @IBOutlet weak var searchText: UITextField!
     var locationManager = CLLocationManager()
     
+    
+    
     @IBOutlet weak var table: UITableView!
     
+    @IBOutlet weak var guideBtn: UIButton!
     var mapAnnotations = [MKPointAnnotation]()
     var myCurrentLocationAnnotation:MKPointAnnotation?
     
     var locations = [MKMapItem]()
+    var triangleOverlay:MKOverlayRenderer?
+    
+    var currentGuide = 0
+    
+    
+    @IBAction func resetAll(_ sender: Any) {
+        map.removeAnnotations(mapAnnotations)
+        
+        if let overlays = map?.overlays{
+            map.removeOverlays(overlays)
+        }
+        
+        
+        
+        initMap()
+    }
+    
+    @IBAction func guideUserToNextLocation(_ sender: Any) {
+        if(mapAnnotations.count != 3){
+            return
+        }
+        switch(currentGuide){
+        case 0:
+            drawRoute(from: mapAnnotations[0], to:   mapAnnotations[1])
+            guideBtn.setTitle("From B To C", for: .normal)
+            currentGuide = 1
+        case 1:
+            drawRoute(from: mapAnnotations[1], to:   mapAnnotations[2])
+            guideBtn.setTitle("From C To A", for: .normal)
+            currentGuide = 2
+        case 2:
+            drawRoute(from: mapAnnotations[2], to:   mapAnnotations[0])
+            guideBtn.setTitle("From A To B", for: .normal)
+            currentGuide = 0
+        default:
+            drawRoute(from: mapAnnotations[0], to:   mapAnnotations[1])
+            guideBtn.setTitle("From B To C", for: .normal)
+            currentGuide = 0
+        }
+    }
+    
+    func drawRoute(from:MKPointAnnotation,to:MKPointAnnotation) {
+        map.removeOverlays(map.overlays)
+        
+        let sourcePlaceMark = MKPlacemark(coordinate: from.coordinate)
+        let destinationPlaceMark = MKPlacemark(coordinate: to.coordinate)
+        
+        
+        let directionRequest = MKDirections.Request()
+        
+        
+        directionRequest.source = MKMapItem(placemark: sourcePlaceMark)
+        directionRequest.destination = MKMapItem(placemark: destinationPlaceMark)
+        
+        directionRequest.transportType = .walking
+        
+        // calculate the direction
+        let directions = MKDirections(request: directionRequest)
+        directions.calculate { (response, error) in
+            guard let directionResponse = response else {return}
+            let route = directionResponse.routes[0]
+            
+            self.map.addOverlay(route.polyline, level: .aboveRoads)
+            
+            let rect = route.polyline.boundingMapRect
+            self.map.setVisibleMapRect(rect, edgePadding: UIEdgeInsets(top: 100, left: 100, bottom: 100, right: 100), animated: true)
+            
+            self.map.setRegion(MKCoordinateRegion(rect), animated: true)
+        }
+    }
+    
+    func drawPolylineWithRouteDistance(from:MKAnnotation,to:MKAnnotation){
+        let sourcePlaceMark = MKPlacemark(coordinate: from.coordinate)
+        let destinationPlaceMark = MKPlacemark(coordinate: to.coordinate)
+        
+        let directionRequest = MKDirections.Request()
+        
+        directionRequest.source = MKMapItem(placemark: sourcePlaceMark)
+        directionRequest.destination = MKMapItem(placemark: destinationPlaceMark)
+        
+        directionRequest.transportType = .walking
+        
+        // calculate the direction
+        let directions = MKDirections(request: directionRequest)
+        directions.calculate { (response, error) in
+            guard let directionResponse = response else {return}
+            let route = directionResponse.routes[0]
+            
+            self.map.addOverlay(route.polyline, level: .aboveRoads)
+            
+            let rect = route.polyline.boundingMapRect
+            self.map.setVisibleMapRect(rect, edgePadding: UIEdgeInsets(top: 100, left: 100, bottom: 100, right: 100), animated: true)
+
+        }
+    }
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -36,8 +135,14 @@ class ViewController: UIViewController,CLLocationManagerDelegate {
     
     @objc func textFieldDidChange(_ textField: UITextField) {
         let text = textField.text
+    
         
-        self.locations.removeAll()
+        if((text ?? "").isEmpty){
+            locations.removeAll()
+            table.isHidden = true
+            table.reloadData()
+            return
+        }
         
         guard let mapView = map,
               let searchBarText = textField.text else {
@@ -53,9 +158,8 @@ class ViewController: UIViewController,CLLocationManagerDelegate {
                     return
                 }
                 
+                self.table.isHidden = false
                 self.locations = response.mapItems
-                
-                print("\(text) \(response.mapItems.count)")
                 
                 self.table.reloadData()
             }
@@ -64,7 +168,14 @@ class ViewController: UIViewController,CLLocationManagerDelegate {
     
     func initMap(){
         
+        triangleOverlay = nil
+        
+        table.isHidden = true
+        resetBtn.isHidden = true
+        guideBtn.isHidden = true
+        
         mapAnnotations = [MKPointAnnotation]()
+        locations.removeAll()
         
         map.isZoomEnabled = false
         map.showsUserLocation = true
@@ -77,8 +188,7 @@ class ViewController: UIViewController,CLLocationManagerDelegate {
         addDoubleTap()
         
         map.delegate = self
-        
-//        addDoubleTap()
+    
         
         let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(addAnnotationOnLongPress))
         map.addGestureRecognizer(longPressGesture)
@@ -90,31 +200,49 @@ class ViewController: UIViewController,CLLocationManagerDelegate {
         map.addGestureRecognizer(doubleTap)
     }
     
+    func removeAllAnnotations(){
+        map.removeAnnotations(mapAnnotations)
+        map.removeOverlays(map.overlays)
+        mapAnnotations.removeAll()
+        triangleOverlay = nil
+    }
+    
+    
     @objc func addAnnotationOnDoubleTap(sender: UITapGestureRecognizer){
-        if(checkAnnotationsCount()){
+        
+        func addIt(){
             let touchPoint = sender.location(in: map)
             let coordinate = map.convert(touchPoint, toCoordinateFrom: map)
             let annotation = MKPointAnnotation()
-            annotation.title = getAnnotationTitle()
+            
+            let title = getAnnotationTitle()
+            
+            annotation.title = title
             annotation.coordinate = coordinate
             
             mapAnnotations.append(annotation)
             
             map.addAnnotation(annotation)
         }
-        else{
-            createAllPolylines()
+        
+        if(checkAnnotationsCount()){
+            addIt()
         }
+        else{
+            removeAllAnnotations()
+            addIt()
+        }
+        createAllPolylines()
     }
     
     func getAnnotationTitle() -> String{
         var title = ""
         switch(mapAnnotations.count){
-            case 1 :
+            case 0 :
                 title = "A"
-            case 2 :
+            case 1 :
                 title = "B"
-            case 3 :
+            case 2 :
                 title = "C"
         default:
             return ""
@@ -122,28 +250,42 @@ class ViewController: UIViewController,CLLocationManagerDelegate {
         return title
     }
     
+    
     func addLocationFromSearch(location:MKMapItem){
-        if(checkAnnotationsCount()){
+        
+        locations.removeAll()
+        
+        func addIt(){
             let annotation = MKPointAnnotation()
             annotation.coordinate = location.placemark.coordinate
             annotation.title = getAnnotationTitle()
             mapAnnotations.append(annotation)
             map.addAnnotation(annotation)
         }
+        
+        if(checkAnnotationsCount()){
+            addIt()
+        }
         else{
-            createAllPolylines()
+            removeAllAnnotations()
+            
+            addIt()
+            
         }
         
-        locations.removeAll()
+        createAllPolylines()
+        
+        table.isHidden = true
+        
+        
     }
     
     @objc func addAnnotationOnLongPress(gestureRecognizer:UIGestureRecognizer){
         
-        if (checkAnnotationsCount()){
+        func addIt(){
             let touchPoint = gestureRecognizer.location(in: map)
             let newCoordinates = map.convert(touchPoint, toCoordinateFrom: map)
-            let location = CLLocationCoordinate2D(latitude: newCoordinates.latitude, longitude: newCoordinates.longitude)
-            
+           
             let annotation = MKPointAnnotation()
             annotation.coordinate = newCoordinates
             annotation.title = getAnnotationTitle()
@@ -152,14 +294,36 @@ class ViewController: UIViewController,CLLocationManagerDelegate {
             
             map.addAnnotation(annotation)
         }
-        else{
-            createAllPolylines()
+        
+        if (checkAnnotationsCount()){
+            addIt()
         }
+        else{
+            removeAllAnnotations()
+           addIt()
+        }
+        createAllPolylines()
+
     }
     
     func createAllPolylines(){
-        
+        if(triangleOverlay != nil){
+            return
+        }
+        if(mapAnnotations.count == 3) {
+            
+            let coordinates = mapAnnotations.map {$0.coordinate}
+            let polygon = MKPolygon(coordinates: coordinates, count: coordinates.count)
+            map.addOverlay(polygon)
+            
+            resetBtn.isHidden = false
+            guideBtn.isHidden = false
+            
+            guideBtn.setTitle("From A To B", for: .normal)
+            currentGuide = 0
+        }
     }
+        
 
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
@@ -208,12 +372,40 @@ class ViewController: UIViewController,CLLocationManagerDelegate {
     }
     
     func checkAnnotationsCount() -> Bool{
-        return mapAnnotations.count <  4
+        return mapAnnotations.count < 3
+    }
+    
+    func distanceFromMyLocation(from:MKAnnotation,to:MKAnnotation) -> String {
+        
+        let sourcePlaceMark = MKPlacemark(coordinate: from.coordinate)
+        let destinationPlaceMark = MKPlacemark(coordinate: to.coordinate)
+        
+        let directionRequest = MKDirections.Request()
+        
+        directionRequest.source = MKMapItem(placemark: sourcePlaceMark)
+        directionRequest.destination = MKMapItem(placemark: destinationPlaceMark)
+        
+        directionRequest.transportType = .walking
+        
+        // calculate the direction
+        var distance = ""
+        let directions = MKDirections(request: directionRequest)
+        directions.calculate { (response, error) in
+            guard let directionResponse = response else {return}
+            let route = directionResponse.routes[0]
+            
+            distance =  "\(route.distance)"
+        }
+        
+        print(distance)
+        
+        return distance
     }
     
 }
 
 extension ViewController: MKMapViewDelegate{
+    
     func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
         
         if annotation is MKUserLocation {
@@ -228,13 +420,48 @@ extension ViewController: MKMapViewDelegate{
             annotationView.rightCalloutAccessoryView = UIButton(type: .detailDisclosure)
             return annotationView
         default:
+            
+            let distanceFromCurrentLocation = distanceFromMyLocation(from: myCurrentLocationAnnotation!, to: annotation)
+            print("annotation distance \(distanceFromCurrentLocation)")
+            
+        
             let annotationView = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: "MyMarker")
+            annotationView.image = UIImage(named: "marker")
+            annotationView.canShowCallout = true
+            
+            let subtitleView = UILabel()
+            var subTitle = "Distance from current location -> \(distanceFromCurrentLocation) \n"
             annotationView.markerTintColor = UIColor.blue
+            
+        
+            if(mapAnnotations.count == 3){
+
+                switch(annotation.title){
+                case "B":
+                    let distancetoA = distanceFromMyLocation(from: annotation, to: mapAnnotations[0])
+                    let distancetoC = distanceFromMyLocation(from: annotation, to: mapAnnotations[2])
+                    subTitle.append("Distance to A -> \(distancetoA) \n Distance to C -> \(distancetoC)")
+                case "C":
+                    let distancetoA = distanceFromMyLocation(from: annotation, to: mapAnnotations[0])
+                    let distancetoB = distanceFromMyLocation(from: annotation, to: mapAnnotations[1])
+                    subTitle.append("Distance to A -> \(distancetoA) \n Distance to B -> \(distancetoB)")
+                default:
+                    let distancetoB = distanceFromMyLocation(from: annotation, to: mapAnnotations[1])
+                    let distancetoC = distanceFromMyLocation(from: annotation, to: mapAnnotations[2])
+                    subTitle.append("Distance to B -> \(distancetoB) \n Distance to C -> \(distancetoC)")
+                }
+            }
+            annotationView.detailCalloutAccessoryView = subtitleView
+            
+            
+            
+            
             return annotationView
         }
         
         
     }
+    
     
     func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
         if overlay is MKCircle {
@@ -244,19 +471,27 @@ extension ViewController: MKMapViewDelegate{
             rendrer.lineWidth = 2
             return rendrer
         } else if overlay is MKPolyline {
+            
             let rendrer = MKPolylineRenderer(overlay: overlay)
-            rendrer.strokeColor = UIColor.blue
+            rendrer.strokeColor = UIColor.green
+            rendrer.fillColor = UIColor.red.withAlphaComponent(0.5)
             rendrer.lineWidth = 3
+            
             return rendrer
         } else if overlay is MKPolygon {
+            
             let rendrer = MKPolygonRenderer(overlay: overlay)
-            rendrer.fillColor = UIColor.red.withAlphaComponent(0.6)
-            rendrer.strokeColor = UIColor.yellow
-            rendrer.lineWidth = 2
+            rendrer.strokeColor = UIColor.green
+            rendrer.fillColor = UIColor.red.withAlphaComponent(0.5)
+            rendrer.lineWidth = 3
+            
+            triangleOverlay = rendrer
+            
             return rendrer
         }
         return MKOverlayRenderer()
     }
+
 
 }
 
