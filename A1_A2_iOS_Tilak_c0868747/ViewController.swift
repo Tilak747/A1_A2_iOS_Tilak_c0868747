@@ -26,6 +26,7 @@ class ViewController: UIViewController,CLLocationManagerDelegate {
     
     var locations = [MKMapItem]()
     var triangleOverlay:MKOverlayRenderer?
+    var linesOverlay:MKOverlayRenderer?
     
     var currentGuide = 0
     
@@ -36,8 +37,6 @@ class ViewController: UIViewController,CLLocationManagerDelegate {
         if let overlays = map?.overlays{
             map.removeOverlays(overlays)
         }
-        
-        
         
         initMap()
     }
@@ -169,6 +168,7 @@ class ViewController: UIViewController,CLLocationManagerDelegate {
     func initMap(){
         
         triangleOverlay = nil
+        linesOverlay = nil
         
         table.isHidden = true
         resetBtn.isHidden = true
@@ -306,13 +306,18 @@ class ViewController: UIViewController,CLLocationManagerDelegate {
 
     }
     
+    
+    
     func createAllPolylines(){
         if(triangleOverlay != nil){
             return
         }
+        
+        var coordinates = mapAnnotations.map {$0.coordinate}
+        
         if(mapAnnotations.count == 3) {
             
-            let coordinates = mapAnnotations.map {$0.coordinate}
+            
             let polygon = MKPolygon(coordinates: coordinates, count: coordinates.count)
             map.addOverlay(polygon)
             
@@ -322,6 +327,29 @@ class ViewController: UIViewController,CLLocationManagerDelegate {
             guideBtn.setTitle("From A To B", for: .normal)
             currentGuide = 0
         }
+        else{
+            return
+        }
+        
+        //to create lines among two markers
+        if(linesOverlay != nil){
+            return
+        }
+        coordinates.append(mapAnnotations[0].coordinate)
+        let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
+        map.addOverlay(polyline)
+        
+        //to create center marker among two annotations
+//        for i in 0...(mapAnnotations.count-2){
+//            var location = mapAnnotations[i].coordinate
+//            var centerlocation = location.middleLocationWith(location: mapAnnotations[i+1].coordinate)
+//
+//            let annotation = MKPointAnnotation()
+//            annotation.coordinate = centerlocation
+//            annotation.title = "center"
+//            map.addAnnotation(annotation)
+//
+//        }
     }
         
 
@@ -388,13 +416,13 @@ class ViewController: UIViewController,CLLocationManagerDelegate {
         directionRequest.transportType = .walking
         
         // calculate the direction
-        var distance = ""
+        var distance = ".. km"
         let directions = MKDirections(request: directionRequest)
         directions.calculate { (response, error) in
             guard let directionResponse = response else {return}
             let route = directionResponse.routes[0]
             
-            distance =  "\(route.distance)"
+            distance =  "\(route.distance) km"
         }
         
         print(distance)
@@ -422,15 +450,13 @@ extension ViewController: MKMapViewDelegate{
         default:
             
             let distanceFromCurrentLocation = distanceFromMyLocation(from: myCurrentLocationAnnotation!, to: annotation)
-            print("annotation distance \(distanceFromCurrentLocation)")
             
-        
             let annotationView = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: "MyMarker")
             annotationView.image = UIImage(named: "marker")
             annotationView.canShowCallout = true
             
             let subtitleView = UILabel()
-            var subTitle = "Distance from current location -> \(distanceFromCurrentLocation) \n"
+            var subTitle = "current location -> \(distanceFromCurrentLocation) away\n"
             annotationView.markerTintColor = UIColor.blue
             
         
@@ -451,6 +477,7 @@ extension ViewController: MKMapViewDelegate{
                     subTitle.append("Distance to B -> \(distancetoB) \n Distance to C -> \(distancetoC)")
                 }
             }
+            subtitleView.text = subTitle
             annotationView.detailCalloutAccessoryView = subtitleView
             
             
@@ -473,9 +500,9 @@ extension ViewController: MKMapViewDelegate{
         } else if overlay is MKPolyline {
             
             let rendrer = MKPolylineRenderer(overlay: overlay)
-            rendrer.strokeColor = UIColor.green
-            rendrer.fillColor = UIColor.red.withAlphaComponent(0.5)
-            rendrer.lineWidth = 3
+            rendrer.strokeColor = UIColor.blue
+            rendrer.fillColor = UIColor.red.withAlphaComponent(0.9)
+            rendrer.lineWidth = 1
             
             return rendrer
         } else if overlay is MKPolygon {
@@ -519,5 +546,26 @@ extension ViewController: UITableViewDelegate,UITableViewDataSource{
         let location = locations[indexPath.row]
         addLocationFromSearch(location: location)
 
+    }
+}
+
+
+extension CLLocationCoordinate2D {
+    // MARK: CLLocationCoordinate2D+MidPoint
+    func middleLocationWith(location:CLLocationCoordinate2D) -> CLLocationCoordinate2D {
+
+        let lon1 = longitude * M_PI / 180
+        let lon2 = location.longitude * M_PI / 180
+        let lat1 = latitude * M_PI / 180
+        let lat2 = location.latitude * M_PI / 180
+        let dLon = lon2 - lon1
+        let x = cos(lat2) * cos(dLon)
+        let y = cos(lat2) * sin(dLon)
+
+        let lat3 = atan2( sin(lat1) + sin(lat2), sqrt((cos(lat1) + x) * (cos(lat1) + x) + y * y) )
+        let lon3 = lon1 + atan2(y, cos(lat1) + x)
+
+        let center:CLLocationCoordinate2D = CLLocationCoordinate2DMake(lat3 * 180 / M_PI, lon3 * 180 / M_PI)
+        return center
     }
 }
