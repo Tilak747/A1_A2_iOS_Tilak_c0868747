@@ -256,14 +256,22 @@ class ViewController: UIViewController,CLLocationManagerDelegate {
         locations.removeAll()
         
         func addIt(){
+
+            
             let annotation = MKPointAnnotation()
             annotation.coordinate = location.placemark.coordinate
             annotation.title = getAnnotationTitle()
+            
+//            if(checkIfAlreadyMarkerExistsNearby(annotation: annotation)){
+//
+//            }
+            
             mapAnnotations.append(annotation)
             map.addAnnotation(annotation)
         }
         
         if(checkAnnotationsCount()){
+            
             addIt()
         }
         else{
@@ -350,6 +358,25 @@ class ViewController: UIViewController,CLLocationManagerDelegate {
 //            map.addAnnotation(annotation)
 //
 //        }
+    }
+    
+    
+    func checkIfAlreadyMarkerExistsNearby(annotation:MKAnnotation) -> Bool{
+        for marker in mapAnnotations{
+            
+            let location = CLLocation(latitude: marker.coordinate.latitude, longitude: marker.coordinate.longitude)
+            let toChecklocation = CLLocation(latitude: annotation.coordinate.latitude, longitude: annotation.coordinate.longitude)
+            
+            var hasNearby  = toChecklocation.checkIfLocationNearby(loc: location)
+            
+            if(hasNearby){
+                return true
+            }
+            
+            
+        }
+        return false
+            
     }
         
 
@@ -567,5 +594,15 @@ extension CLLocationCoordinate2D {
 
         let center:CLLocationCoordinate2D = CLLocationCoordinate2DMake(lat3 * 180 / M_PI, lon3 * 180 / M_PI)
         return center
+    }
+    
+    
+}
+
+extension CLLocation{
+    func checkIfLocationNearby(loc:CLLocation) -> Bool{
+        let distance = distance(from: loc) / 1000
+        return distance < 500
+        //500 metres
     }
 }
